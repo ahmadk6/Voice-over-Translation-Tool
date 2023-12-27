@@ -10,7 +10,7 @@ function App() {
   }
 
   const options = [
-    {value: 'sp', text: 'Spanish'},
+    {value: 'es', text: 'Spanish'},
     {value: 'fr', text: 'French'},
     {value: 'it', text: 'Italian'},
     {value: 'en', text: 'English'},
