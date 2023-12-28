@@ -30,7 +30,7 @@ app.post('/translate', upload.single('file'), (req, res) => {
     //need to take parameters
     let lang = req.body.language;
     video = 'files/' + video;
-    let langCod
+    let langCode
     switch (lang) {
         case 'es':
             langCode = 'es-ES'
@@ -46,7 +46,7 @@ app.post('/translate', upload.single('file'), (req, res) => {
     }
     convert(video, 'files/output.mp3', async function(err) {
         if (!err) {
-            console.log('conversion complete');
+            console.log('conversion completed');
             let a = await transcribeAudio('files/output.mp3');
             let r = a[0].results;
             let t = conTranscript(r)
@@ -54,20 +54,27 @@ app.post('/translate', upload.single('file'), (req, res) => {
                     console.log(r);
                     await synthesize(r, langCode).then(async() => {
                         voiceOver(video).then(async() => {
-                            var filePath = path.join(__dirname, 'files/final.mp4');
-                            var stat = fs.statSync(filePath);
-                            res.writeHead(200, {
-                                'Content-Type': 'video/mp4',
-                                'Content-Length': stat.size
-                            });
-                            var readStream = fs.createReadStream(filePath);
-                            // We replaced all the event handlers with a simple call to readStream.pipe()
-                            readStream.pipe(res);
-                            // path2 = require('path')
-                            // var dirPath = path2.join(__dirname, 'files');
-                            // deleteAllFilesInDir(dirPath).then(() => {
-                            //     console.log('Removed all irrelevant files from the server');
-                            // });
+                            setTimeout(function() {
+                                var filePath = path.join(__dirname, 'files/final.mp4');
+                                var stat = fs.statSync(filePath);
+                                res.writeHead(200, {
+                                    'Content-Type': 'video/mp4',
+                                    'Content-Length': stat.size
+                                });
+                                var readStream = fs.createReadStream(filePath);
+                                // We replaced all the event handlers with a simple call to readStream.pipe()
+                                readStream.pipe(res);
+                                path2 = require('path')
+                                var dirPath = path2.join(__dirname, 'files');
+                                setTimeout(() => {
+                                    deleteAllFilesInDir(dirPath).then(() => {
+                                        console.log('Removed all irrelevant files from the server');
+                                    });
+                                }, 3000);
+                            }, 1000);
+
+
+
                         });
 
                     })
@@ -78,14 +85,13 @@ app.post('/translate', upload.single('file'), (req, res) => {
         }
     });
 });
-// async function deleteAllFilesInDir(dirPath) {
-//     fs.readdir(dirPath, (err, files) => {
-//         if (err) throw err;
-
-//         for (const file of files) {
-//             fs.unlink(path.join(dirPath, file), (err) => {
-//                 if (err) throw err;
-//             });
-//         }
-//     });
-// }
+async function deleteAllFilesInDir(dirPath) {
+    fs.readdir(dirPath, (err, files) => {
+        if (err) throw err;
+        for (const file of files) {
+            fs.unlink(path.join(dirPath, file), (err) => {
+                if (err) throw err;
+            });
+        }
+    });
+}
