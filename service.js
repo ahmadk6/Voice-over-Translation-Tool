@@ -1,9 +1,7 @@
-process.env.GOOGLE_APPLICATION_CREDENTIALS = 'letstok-409012-54af63d42f5f.json'; // Set the path to your Google Cloud service account key.
-const CREDENTIALS = require('./letstok-409012-54af63d42f5f.json');
+process.env.GOOGLE_APPLICATION_CREDENTIALS = 'letstok-410014-1903c8cadc8b.json'; // Set the path to your Google Cloud service account key.
+const CREDENTIALS = require('./letstok-410014-1903c8cadc8b.json');
 const fs = require('fs'); // Import the Node.js filesystem module.
 var ffmpeg = require('fluent-ffmpeg');
-require('dotenv').config();
-
 const textToSpeech = require('@google-cloud/text-to-speech');
 const client = new textToSpeech.TextToSpeechClient();
 
@@ -81,11 +79,11 @@ const translateText = async(text, langCode) => {
         return 0;
     }
 };
-async function synthesize(text, langCode) {
+async function synthesize(text, langCode, voiceName) {
     const util = require('util');
     const request = {
         input: { text: text },
-        voice: { languageCode: langCode, ssmlGender: 'FEMALE' },
+        voice: { languageCode: langCode, name: voiceName, ssmlGender: 'FEMALE' },
         audioConfig: { audioEncoding: 'MP3' },
     };
 
@@ -95,10 +93,24 @@ async function synthesize(text, langCode) {
     await writeFile('files/result.mp3', response.audioContent, 'binary');
     console.log('Audio content written to file: result.mp3');
 }
-
 async function voiceOver(video) {
-    ffmpeg().addInput(video).addInput('files/result.mp3').addOutputOption(['-map 0:v', '-map 1:a', '-c:v copy']).saveToFile('files/final.mp4')
-    console.log('good job! check final.mp4')
-}
+    const command = ffmpeg()
+        .addInput(video)
+        .addInput('files/result.mp3')
+        .addOutputOption(['-map 0:v', '-map 1:a', '-c:v copy'])
+        .save('files/final.mp4');
 
+    try {
+        await saveToFilePromise(command);
+        console.log('Good job! Check final.mp4');
+    } catch (error) {
+        console.error('Error:', error);
+    }
+}
+async function saveToFilePromise(command) {
+    return new Promise((resolve, reject) => {
+        command.on('end', () => resolve());
+        command.on('error', (err) => reject(err));
+    });
+}
 module.exports = { convert, transcribeAudio, conTranscript, translateText, synthesize, voiceOver };
