@@ -79,7 +79,7 @@ const translateText = async(text, langCode) => {
         return 0;
     }
 };
-async function synthesize(text, langCode, voiceName) {
+async function synthesize(text, langCode, voiceName, result) {
     const util = require('util');
     const request = {
         input: { text: text },
@@ -90,19 +90,19 @@ async function synthesize(text, langCode, voiceName) {
     const [response] = await client.synthesizeSpeech(request);
     // Write the binary audio content to a local file
     const writeFile = util.promisify(fs.writeFile);
-    await writeFile('files/result.mp3', response.audioContent, 'binary');
-    console.log('Audio content written to file: result.mp3');
+    await writeFile(result, response.audioContent, 'binary');
+    console.log('Audio content written to file: ' + result);
 }
-async function voiceOver(video) {
+async function voiceOver(video, audio, final) {
     const command = ffmpeg()
         .addInput(video)
-        .addInput('files/result.mp3')
+        .addInput(audio)
         .addOutputOption(['-map 0:v', '-map 1:a', '-c:v copy'])
-        .save('files/final.mp4');
+        .save(final);
 
     try {
         await saveToFilePromise(command);
-        console.log('Good job! Check final.mp4');
+        console.log('Good job! Check ' + final);
     } catch (error) {
         console.error('Error:', error);
     }
