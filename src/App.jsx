@@ -39,14 +39,11 @@ function App() {
 
     axios.post(url, formData, config).then((response)=> {
       var x=URL.createObjectURL(response.data)
-      console.log(Resp)
       console.log(x)
-      sleep(1000).then(() => { setResp(x);console.log("wakeup!!!");setMessage(false) });
-        })
+      setResp(x)
+      setMessage(false)     
+    })
 
-  }
-  function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
   }
     return ( 
 <div className="center">
