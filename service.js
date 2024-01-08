@@ -5,10 +5,59 @@ var ffmpeg = require('fluent-ffmpeg');
 const textToSpeech = require('@google-cloud/text-to-speech');
 const client = new textToSpeech.TextToSpeechClient();
 
+function doTranslate(video, date, req, res) {
+    path = require('path')
+    let lang = req.body.language;
+    let langCode
+    let voiceName
+    switch (lang) {
+        case 'es':
+            langCode = 'es-ES'
+            voiceName = 'es-ES-Standard-C'
+            break;
+        case 'it':
+            langCode = 'it-IT'
+            voiceName = 'it-IT-Standard-B'
+            break;
+        case 'fr':
+            langCode = 'fr-FR'
+            voiceName = 'fr-FR-Standard-A'
+            break;
+        default:
+            langCode = 'en-US'
+            voiceName = 'en-US-Standard-E'
+    }
+    var output = `files/${date}_output.wav`
+    convert(video, output, async function(err) {
+        if (!err) {
+            let a = await transcribeAudio(output);
+            let r = a[0].results;
+            let t = r[0].alternatives[0].transcript
+            console.log(t);
+            translateText(t, lang).then(async(r) => {
+                    console.log(r);
+                    var result = `files/${date}_result.wav`
+                    var final = `files/${date}_final.mp4`
+                    await synthesize(r, langCode, voiceName, result).then(() => {
+                        voiceOver(video, result, final).then(async() => {
+                            sendRespone(res, date)
+                        });
+                    })
+                })
+                .catch((err) => {
+                    console.log(err);
+                });
+        }
+    });
+}
+
 function convert(input, output, callback) {
     ffmpeg(input)
+        .audioChannels(1)
+        .audioBitrate('1411k')
         .output(output)
         .on('end', function() {
+            console.log('conversion completed');
             callback(null);
         }).on('error', function(err) {
             console.log('error: ', err.code, err.msg);
@@ -32,10 +81,9 @@ async function transcribeAudio(audioName) {
 
         // Define the configuration for audio encoding, sample rate, and language code.
         const config = {
-            encoding: 'MP3', // Audio encoding (change if needed).
-            sampleRateHertz: 8000, // Audio sample rate in Hertz (change if needed).
             languageCode: 'en-US', // Language code for the audio (change if needed).
-            alternativeLanguageCodes: ['es-ES', 'en-US', 'fr-FR', 'it-IT'],
+            alternativeLanguageCodes: ['es-ES', 'fr-FR', 'it-IT'],
+            enable_automatic_punctuation: true,
             enableWordTimeOffsets: true
         };
 
@@ -55,15 +103,7 @@ async function transcribeAudio(audioName) {
         console.error('Error:', error);
     }
 }
-
-function conTranscript(input) {
-    let s = ''
-    input.forEach(alt => {
-        s += alt.alternatives[0].transcript;
-    });
-    return s
-}
-const translateText = async(text, langCode) => {
+const translateText = async(text, lang) => {
     const { Translate } = require('@google-cloud/translate').v2;
     // Configuration for the client
     const translate = new Translate({
@@ -72,7 +112,7 @@ const translateText = async(text, langCode) => {
     });
 
     try {
-        let [response] = await translate.translate(text, langCode);
+        let [response] = await translate.translate(text, lang);
         return response;
     } catch (error) {
         console.log(`Error at translateText --> ${error}`);
@@ -84,7 +124,7 @@ async function synthesize(text, langCode, voiceName, result) {
     const request = {
         input: { text: text },
         voice: { languageCode: langCode, name: voiceName, ssmlGender: 'FEMALE' },
-        audioConfig: { audioEncoding: 'MP3' },
+        audioConfig: { audioEncoding: 'LINEAR16' },
     };
 
     const [response] = await client.synthesizeSpeech(request);
@@ -113,4 +153,34 @@ async function saveToFilePromise(command) {
         command.on('error', (err) => reject(err));
     });
 }
-module.exports = { convert, transcribeAudio, conTranscript, translateText, synthesize, voiceOver };
+
+function sendRespone(res, date) {
+    var final = `files/${date}_final.mp4`
+    var filePath = path.join(__dirname, final);
+    var stat = fs.statSync(filePath);
+    res.writeHead(200, {
+        'Content-Type': 'video/mp4',
+        'Content-Length': stat.size
+    });
+    var readStream = fs.createReadStream(filePath);
+    // We replaced all the event handlers with a simple call to readStream.pipe()
+    readStream.pipe(res);
+    path2 = require('path')
+    var dirPath = path2.join(__dirname, 'files');
+    readStream.on('end', () => {
+        deleteAllFilesInDir(dirPath, date)
+    });
+}
+
+async function deleteAllFilesInDir(dirPath, prefix) {
+    fs.readdir(dirPath, (err, files) => {
+        if (err) throw err;
+        for (const file of files) {
+            if (file.startsWith(prefix))
+                fs.unlink(path.join(dirPath, file), (err) => {
+                    if (err) throw err;
+                });
+        }
+    });
+}
+module.exports = { doTranslate, translateText };
